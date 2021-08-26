@@ -1,13 +1,13 @@
 [
  {
-   "modid": "examplemod",
-   "name": "Example Mod",
-   "description": "An example mod to show off various features",
+   "modid": "randomspawn",
+   "name": "Randomized Spawns",
+   "description": "A mod to randomize the spawn point of any player that doesn't have a set spawn",
    "version": "${version}",
    "mcversion": "${mcversion}",
    "url": "https://github.com/MinecraftModDevelopmentMods/ExampleMod",
    "updateUrl": "",
-   "authorList": ["jriwanek"],
+   "authorList": ["jriwanek", "dshadowwolf"],
    "credits": "All the FMS Contributors",
    "logoFile": "",
    "screenshots": [],
