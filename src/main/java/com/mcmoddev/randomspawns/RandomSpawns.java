@@ -1,111 +1,111 @@
-package com.example.examplemod;
+package com.mcmoddev.randomspawns;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
+import net.minecraft.block.BlockState;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.world.biome.Biome;
+import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.gen.Heightmap;
+import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.InterModComms;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
-import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
-import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import java.util.Random;
 
-// The value here should match an entry in the META-INF/mods.toml file
 /**
  *
  */
-@Mod("examplemod")
-public class ExampleMod {
+@Mod("randomspawns")
+public class RandomSpawns {
 
-    /** Directly reference a log4j logger. */
-    private static final Logger LOGGER = LogManager.getLogger();
+	/**
+	 * Directly reference a log4j logger.
+	 */
+	private static final Logger LOGGER = LogManager.getLogger();
 
-    /**
-     *
-     */
-    public ExampleMod() {
-        // Register the setup method for modloading
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
-        // Register the enqueueIMC method for modloading
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::enqueueIMC);
-        // Register the processIMC method for modloading
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::processIMC);
-        // Register the doClientStuff method for modloading
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::doClientStuff);
+	/**
+	 *
+	 */
+	public RandomSpawns() {
+		ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, RandomSpawnsConfig.COMMON_SPEC);
+		MinecraftForge.EVENT_BUS.register(this);
+	}
 
-        // Register ourselves for server and other game events we are interested in
-        MinecraftForge.EVENT_BUS.register(this);
-    }
+	private static BlockPos findValidSpawnPos(ServerWorld worldIn, BlockPos base) {
+		Biome biome = worldIn.getBiome(base);
+		BlockState bs = biome.getGenerationSettings().getSurfaceBuilderConfig().getTopMaterial();
+		boolean flag = worldIn.dimensionType().hasCeiling();
 
-    /**
-     *
-     */
-    private void setup(final FMLCommonSetupEvent event) {
-        // some preinit code
-        LOGGER.info("HELLO FROM PREINIT");
-        LOGGER.info("DIRT BLOCK >> {}", Blocks.DIRT.getRegistryName());
-    }
+		return getRespawnPos(worldIn, base.getX(), base.getZ(), flag, bs);
+	}
 
-    /**
-     *
-     */
-    private void doClientStuff(final FMLClientSetupEvent event) {
-        // do something that can only be done on the client
-        LOGGER.info("Got game settings {}", event.getMinecraftSupplier().get().gameSettings);
-    }
+	@Nullable
+	private static BlockPos getRespawnPos(ServerWorld worldIn, int xPos, int zPos, boolean hasCeiling, BlockState surfState) {
+		Chunk chunk = worldIn.getChunk(xPos >> 4, zPos >> 4);
+		int xW = xPos & 15;
+		int zW = zPos & 15;
+		int max = hasCeiling ? worldIn.getChunkSource().getGenerator().getSpawnHeight() : chunk.getHeight(Heightmap.Type.MOTION_BLOCKING, xW, zW);
+		if (max < 0) {
+			return null;
+		} else {
+			int surfaceHeight = chunk.getHeight(Heightmap.Type.WORLD_SURFACE, xW, zW);
+			int oceanFloor = chunk.getHeight(Heightmap.Type.OCEAN_FLOOR, xW, zW);
+			if (surfaceHeight < max && surfaceHeight > oceanFloor) {
+				return null;
+			} else {
+				return seekSurface(worldIn, max, xPos, zPos, surfState);
+			}
+		}
+	}
 
-    /**
-     *
-     */
-    private void enqueueIMC(final InterModEnqueueEvent event) {
-        // some example code to dispatch IMC to another mod
-        InterModComms.sendTo("examplemod", "helloworld", () -> {
-            LOGGER.info("Hello world from the MDK"); return "Hello world";
-        });
-    }
+	private static BlockPos seekSurface(ServerWorld worldIn, int max, int xPos, int zPos, BlockState surfaceState) {
+		BlockPos.Mutable retVal = new BlockPos.Mutable(xPos, 0, zPos);
+		for (int curr = max + 1; curr >= 0; --curr) {
+			retVal.set(xPos, curr, zPos);
+			BlockState tState = worldIn.getBlockState(retVal);
+			if (!tState.getFluidState().isEmpty()) break;
 
-    /**
-     *
-     */
-    private void processIMC(final InterModProcessEvent event) {
-        // some example code to receive and process InterModComms from other mods
-        LOGGER.info("Got IMC {}", event.getIMCStream().
-                map(imcMap -> imcMap.getMessageSupplier().get()).
-                collect(Collectors.toList()));
-    }
+			if (tState.equals(surfaceState)) return retVal.above().immutable();
+		}
 
-    // You can use SubscribeEvent and let the Event Bus discover methods to call
-    /**
-     *
-     */
-    @SubscribeEvent
-    public void onServerStarting(final FMLServerStartingEvent event) {
-        // do something when the server starts
-        LOGGER.info("HELLO from server starting");
-    }
+		return null;
+	}
 
-    // You can use EventBusSubscriber to automatically subscribe events on the contained class (this is subscribing
-    // to the MOD Event bus for receiving Registry Events)
-    /**
-     *
-     */
-    @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
-    public static class RegistryEvents {
-        @SubscribeEvent
-        /**
-         *
-         */
-        public static void onBlocksRegistry(final RegistryEvent.Register<Block> blockRegistryEvent) {
-            // register a new block here
-            LOGGER.info("HELLO from Register Block");
-        }
-    }
+	@SubscribeEvent
+	public void respawning(final PlayerEvent.PlayerRespawnEvent event) {
+		int radius = RandomSpawnsConfig.COMMON.randomSpawnRadius.get();
+
+		if (radius == 0) {
+			return;
+		}
+
+		if (event.getPlayer().getCommandSenderWorld().isClientSide()) return;
+		ServerPlayerEntity pl = (ServerPlayerEntity) event.getPlayer();
+		ServerWorld w = (ServerWorld) pl.getCommandSenderWorld();
+		BlockPos z = w.getSharedSpawnPos();
+		BlockPos k = pl.getRespawnPosition();
+
+		if (k == null || z.equals(k)) {
+			Random r = w.getRandom();
+			BlockPos rPos = null;
+			int cc = 0;
+			while (rPos == null && ++cc < 15) {
+				int nx = z.getX() + r.nextInt(radius);
+				int nz = z.getZ() + r.nextInt(radius);
+				BlockPos pt = new BlockPos(nx, z.getY(), nz);
+				rPos = findValidSpawnPos(w, pt);
+			}
+			if ( cc >= 15 ) return;
+			pl.setPos(rPos.getX(), rPos.getY(), rPos.getZ());
+			pl.displayClientMessage(new StringTextComponent(String.format("Spawned at %s", rPos)), false);
+		}
+	}
 }
