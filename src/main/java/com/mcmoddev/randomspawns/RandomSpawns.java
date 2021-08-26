@@ -103,9 +103,9 @@ public class RandomSpawns {
 				BlockPos pt = new BlockPos(nx, z.getY(), nz);
 				rPos = findValidSpawnPos(w, pt);
 			}
-			if ( cc >= 15 ) return;
-			pl.setPos(rPos.getX(), rPos.getY(), rPos.getZ());
-			pl.displayClientMessage(new StringTextComponent(String.format("Spawned at %s", rPos)), false);
+			if ( cc >= 15 || rPos == null ) return;
+			pl.teleportTo(w, rPos.getX(), rPos.getY(), rPos.getZ(), w.getSharedSpawnAngle(), 0);
+			pl.displayClientMessage(new StringTextComponent(String.format("Respawned at %s", rPos)), false);
 		}
 	}
 }
