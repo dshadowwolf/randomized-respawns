@@ -10,6 +10,7 @@ import net.minecraft.world.gen.Heightmap;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -79,7 +80,7 @@ public class RandomSpawns {
 		return null;
 	}
 
-	@SubscribeEvent
+	@SubscribeEvent(priority= EventPriority.HIGHEST)
 	public void respawning(final PlayerEvent.PlayerRespawnEvent event) {
 		int radius = RandomSpawnsConfig.COMMON.randomSpawnRadius.get();
 
